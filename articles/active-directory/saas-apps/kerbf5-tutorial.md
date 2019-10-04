@@ -35,7 +35,7 @@ To learn more about SaaS app integration with Azure AD, see [What is application
 To get started, you need the following items:
 
 * An Azure AD subscription. If you don't have a subscription, you can get a [free account](https://azure.microsoft.com/free/).
-* F5 single sign-on (SSO) enabled subscription.
+* F5 single sign-on (APM unlimited license) [trial license does not include the Guided Configuration - use advanced kerberos application]
 
 ## Scenario description
 
@@ -59,11 +59,11 @@ To configure the integration of F5 into Azure AD, you need to add F5 from the ga
 1. Navigate to **Enterprise Applications** and then select **All Applications**.
 1. To add new application, select **New application**.
 1. In the **Add from the gallery** section, type **F5** in the search box.
-1. Select **F5** from results panel and then add the app. Wait a few seconds while the app is added to your tenant.
+1. Select **F5** from results panel change the name to the desired published web application name and then add the app. Wait a few seconds while the app is added to your tenant.
 
 ## Configure and test Azure AD single sign-on for F5
 
-Configure and test Azure AD SSO with F5 using a test user called **B.Simon**. For SSO to work, you need to establish a link relationship between an Azure AD user and the related user in F5.
+Configure and test Azure AD SSO with F5 using a test user called **B.Simon**. For SSO to work, you need to establish a link relationship between an Azure AD user and the related user in Active Directory of which F5 will be dependent on.
 
 To configure and test Azure AD SSO with F5, complete the following building blocks:
 
@@ -87,20 +87,20 @@ Follow these steps to enable Azure AD SSO in the Azure portal.
 1. On the **Basic SAML Configuration** section, if you wish to configure the application in **IDP** initiated mode, enter the values for the following fields:
 
     a. In the **Identifier** text box, type a URL using the following pattern:
-    `https://<YourCustomFQDN>.f5.com/`
+    `https://<yourApplicationPublishedByF5URL>/`
 
     b. In the **Reply URL** text box, type a URL using the following pattern:
-    `https://<YourCustomFQDN>.f5.com/`
+    `https://<yourApplicationPublishedByF5URL>/`
 
 1. Click **Set additional URLs** and perform the following step if you wish to configure the application in **SP** initiated mode:
 
     In the **Sign-on URL** text box, type a URL using the following pattern:
-    `https://<YourCustomFQDN>.f5.com/`
+    `https://<yourApplicationPublishedByF5URL>`
 
 	> [!NOTE]
 	> These values are not real. Update these values with the actual Identifier, Reply URL and Sign-on URL. Contact [F5 Client support team](https://support.f5.com/csp/knowledge-center/software/BIG-IP?module=BIG-IP%20APM45) to get these values. You can also refer to the patterns shown in the **Basic SAML Configuration** section in the Azure portal.
 
-1. On the **Set up single sign-on with SAML** page, in the **SAML Signing Certificate** section,  find **Federation Metadata XML** and select **Download** to download the certificate and save it on your computer.
+1. On the **Set up single sign-on with SAML** page, in the **SAML Signing Certificate** section,  find **Federation Metadata XML** and select **Download** to save it on your computer.  [RZ: no need to download the certificate - its already in the XML file]
 
 	![The Certificate download link](common/metadataxml.png)
 
@@ -108,17 +108,17 @@ Follow these steps to enable Azure AD SSO in the Azure portal.
 
 	![Copy configuration URLs](common/copy-configuration-urls.png)
 
-### Create an Azure AD test user
+### Create an AD test user and synchronize it to Azure AD 
 
-In this section, you'll create a test user in the Azure portal called B.Simon.
+In this section, you'll create a test user in Active Directory called B.Simon.
 
-1. From the left pane in the Azure portal, select **Azure Active Directory**, select **Users**, and then select **All users**.
-1. Select **New user** at the top of the screen.
+1. On your Domain Controller, or administrative workstation, open **Active Directory Users & Computers**, select the right OU and right click the OU to select **New User** 
 1. In the **User** properties, follow these steps:
    1. In the **Name** field, enter `B.Simon`.  
-   1. In the **User name** field, enter the username@companydomain.extension. For example, `B.Simon@contoso.com`.
-   1. Select the **Show password** check box, and then write down the value that's displayed in the **Password** box.
+   1. In the **User name** field, type the login name and select the appropriate UPN For example, `B.Simon@contoso.com`.
+   1. Deselect **User must change password on next logon**, type and confirm the password 
    1. Click **Create**.
+   1. Synchronize the user using Azure AD Connect to the Azure AD tenant (https://docs.microsoft.com/en-us/azure/active-directory/hybrid/how-to-connect-install-express)
 
 ### Assign the Azure AD test user
 
@@ -135,24 +135,53 @@ In this section, you'll enable B.Simon to use Azure single sign-on by granting a
 	![The Add User link](common/add-assign-user.png)
 
 1. In the **Users and groups** dialog, select **B.Simon** from the Users list, then click the **Select** button at the bottom of the screen.
-1. If you're expecting any role value in the SAML assertion, in the **Select Role** dialog, select the appropriate role for the user from the list and then click the **Select** button at the bottom of the screen.
+1. (If you're expecting any role value in the SAML assertion, in the **Select Role** dialog, select the appropriate role for the user from the list and then click the **Select** button at the bottom of the screen. - Not availabe without updating the Manifest file)
 1. In the **Add Assignment** dialog, click the **Assign** button.
 
+## Configure Active Directory for Keberos Constraint Delegation
+
+In this section, you will create and enable KCD for the F5 APM module account towards the web server.
+Contact [F5 (Kerberos) Client support team](https://support.f5.com/csp/knowledge-center/software/BIG-IP?module=BIG-IP%20APM45) for  documentation details.
+
+1. On your Domain Controller, or administrative workstation, open **Active Directory Users & Computers**, select the right OU and right click the OU to select **New User** 
+1. In the **User** properties, follow these steps:
+   1. In the **Name** field, enter `F5APM`.  
+   1. In the **User name** field, type the login name and select the appropriate UPN For example, `f5apm@superdemo.live`.
+   1. Deselect **User must change password on next logon**, type and confirm the password 
+   1. Click **Create**.
+
+1. On your domain controller or administrative workstation register the SPN for the website by using cmd or PowerShell:
+	setspn -s HTTP/<websiteFQDN>    `setspn -s HTTP/Kerbapp.superdemo.live webserver01`
+	
+1. Configure KCD for the F5 APM account
+	a. Register an SPN on the APM by using cmd or PowerShell: 
+		setspn -s HOST/f5apm f5apm    
+	a. Open the properties of the F5 APM account in Active Directory Users and Computers
+	b. Select the **Delegation** tab and select **Trust this user for delegation to specified services only**
+	c. select **Use any authentication protocol** and click Add
+	d. select **Users or Computers** and type the name of the computer (or service account) hosting the website `webserver91`
+	e. in the pop-up field search for the SPN just registered in the previous step (`HTTP/Kerbapp.superdemo.live`) select it and clik **OK**
+	f. click OK to save and close the account properties for the F5 APM account
+	
 ## Configure F5 SSO
 
 - [Configure F5 single sign-on for Header Based application](headerf5-tutorial.md)
 
 - [Configure F5 single sign-on for Advanced Kerberos application](advance-kerbf5-tutorial.md)
 
+### Ensure F5 is setup correctly with interfaces, DNS resolving and licensing
+1. Contact [F5 (Kerberos) Client support team](https://support.f5.com/csp/knowledge-center/software/BIG-IP?module=BIG-IP%20APM45) for documentation details.
+
+
 ### Configure F5 single sign-on for Kerberos application
 
 1. Open a new web browser window and sign into your F5 (Kerberos) company site as an administrator and perform the following steps:
 
-1. You need to import the Metadata Certificate into the F5 (Kerberos) which will be used later in the setup process. Go to **System > Certificate Management > Traffic Certificate Management >> SSL Certificate List**. Click on **Import** of the right-hand corner.
+-- [RZ: this is not required as the cert is already in the FederationData.xml file] -- 1. You need to import the Metadata Certificate into the F5 (Kerberos) which will be used later in the setup process. Go to **System > Certificate Management > Traffic Certificate Management >> SSL Certificate List**. Click on **Import** of the right-hand corner.
 
 	![F5 (Kerberos) configuration](./media/kerbf5-tutorial/configure01.png) 
 
-1. Additionally you also need an **SSL Certificate** for the Hostname (`Kerbapp.superdemo.live`), in this example we used Wildcard Certificate.
+1. You will need an **SSL Certificate** for the Hostname (`Kerbapp.superdemo.live`), in this example we used a Wildcard Certificate.[refer to the F5 configuration to also include the intermediate/root certificates for the (wildcard) SSL certificate]
 
     ![F5 (Kerberos) configuration](./media/kerbf5-tutorial/configure02.png) 
  
@@ -166,21 +195,29 @@ In this section, you'll enable B.Simon to use Azure single sign-on by granting a
 
     ![F5 (Kerberos) configuration](./media/kerbf5-tutorial/configure05.png) 
 
-1. Create a new Virtual Server, Specify the **Destination Address**. Choose the **Wild Card Certificate** (or **Cert** you uploaded for the Application) that we uploaded earlier and the **Associated Private Key**.
+1. Create a new Virtual Server, Specify a new (free) IP address to be the listener on the F5 [RZ: not the webserver IP that comes later under the "Pool" entries]. Choose the **Wild Card Certificate** (or **Cert** you uploaded for the Application) that we uploaded earlier and the **Associated Private Key**.
 
     ![F5 (Kerberos) configuration](./media/kerbf5-tutorial/configure06.png)
 
-1. Upload the Configuration **Metadata** and Specify a new **Name for SAML IDP Connector** and you will also need to specify the Federation Certificate that was uploaded earlier.
+1. Upload the Configuration **Metadata** and Specify a new **Name for SAML IDP Connector** [RZ: Not required - and you will also need to specify the Federation Certificate that was uploaded earlier.]
 
     ![F5 (Kerberos) configuration](./media/kerbf5-tutorial/configure07.png)  
 
-1. **Create New** Backend App Pool, specify the **IP Address(s)** of the Backend Application Servers.
+1. **Create New** Backend App Pool, specify the **IP Address(s)** and **Ports** of the Backend Application Servers running the website.
  
     ![F5 (Kerberos) configuration](./media/kerbf5-tutorial/configure08.png)
 
-1. Under **Single Sign-on Settings**, choose **Kerberos** and Select **Advanced Settings**. The request needs to be created in `user@domain.suffix`.
+1. Under **Single Sign-on Settings**, select **Enable Single Sign-On**, choose **Kerberos** and Select **Advanced Settings**.
+a. Under Username Source create: 'session.saml.last.attr.name.Identity' [RZ: this gives you the samaccountname directly]
+b. Under Kerberos REALM type the FQDN of your Active Directory Domain `superdemo.live`
+c. Under Account Name, type the F5 APM accountname and type and confirm the password
+d. If DNS is not setup correctly on the F5, type the IP address of a domain controller in the KDC field
+e. Enable **UPN Support**
+f. for the SPN Pattern type **HTTP/%h**
+g. Set the **Send Authorization** to **On 401 Status Code**
+h. Click **Save & Next**
 
-1. Under the **username source** specify `session.saml.last.attr.name.http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname`. Refer Appendix for complete list of variables and values.
+[RZ: session.saml.last.attr.name.Identity actually gives you the samAccountName in clear text - easier to match to user in AD when UPN support is enabled - 1. Under the **username source** specify `session.saml.last.attr.name.http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname`. Refer Appendix for complete list of variables and values.
 Account Name Is the F5 Delegation Account Created ( Check F5 Documentation).
 
     ![F5 (Kerberos) configuration](./media/kerbf5-tutorial/configure09.png)   
@@ -199,15 +236,18 @@ Account Name Is the F5 Delegation Account Created ( Check F5 Documentation).
 
     ![F5 (Kerberos) configuration](./media/kerbf5-tutorial/configure13.png)
 
-### Create F5 test user
-
+[RZ: Not required ; we created a user in AD already which is enough for the KCD to work .. ### Create F5 test user
 In this section, you create a user called B.Simon in F5. Work with [F5 Client support team](https://support.f5.com/csp/knowledge-center/software/BIG-IP?module=BIG-IP%20APM45) to add the users in the F5 platform. Users must be created and activated before you use single sign-on. 
+]
 
 ## Test SSO 
 
 In this section, you test your Azure AD single sign-on configuration using the Access Panel.
 
 When you click the F5 tile in the Access Panel, you should be automatically signed in to the F5 for which you set up SSO. For more information about the Access Panel, see [Introduction to the Access Panel](https://docs.microsoft.com/azure/active-directory/active-directory-saas-access-panel-introduction).
+
+You should also be able to browse directly to the website URL and you will be automatically redirected to your Azure AD loginscreen
+
 
 ## Additional resources
 
